@@ -8,6 +8,7 @@ type Display interface {
 	Clear(pixels []uint8)
 	Draw(pixels []uint8) error
 	WriteSprite(pixels []uint8, sprite []uint8, x, y uint8) bool
+	Close()
 }
 
 type TermboxDisplay struct {
@@ -68,6 +69,10 @@ func (display TermboxDisplay) WriteSprite(pixels []uint8, sprite []uint8, x, y u
 		}
 	}
 	return collision
+}
+
+func (display TermboxDisplay) Close() {
+	termbox.Close()
 }
 
 func NewTermboxDisplay(fg, bg termbox.Attribute) (Display, error) {

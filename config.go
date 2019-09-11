@@ -18,3 +18,7 @@ func NewDefaultTermboxConfig() (config Config, err error) {
 	}
 	return config, nil
 }
+
+func (config Config) Close() {
+	config.Display.Close()
+}

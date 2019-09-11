@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-var ErrQuit error = errors.New("quit")
+var ErrQuit = errors.New("quit")
 
 type CPU struct {
 	config  Config
@@ -269,7 +269,10 @@ func (cpu *CPU) execute(opcode opcode) error {
 		cpu.v[0xF] = cf
 		cpu.pc += 2
 
-		cpu.config.Display.Draw(pixels)
+		err := cpu.config.Display.Draw(pixels)
+		if err != nil {
+			return err
+		}
 	case 0xE000:
 		switch opcode & 0x00FF {
 		case 0x009E:
