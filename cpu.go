@@ -69,9 +69,8 @@ func isKeySet(keys uint16, pos uint8) bool {
 func log2n(n uint16) uint8 {
 	if n > 1 {
 		return 1 + log2n(n/2)
-	} else {
-		return 0
 	}
+	return 0
 }
 
 func isPowerOfTwo(n uint16) bool {
