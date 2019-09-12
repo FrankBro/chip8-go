@@ -23,11 +23,12 @@ type Hardware interface {
 }
 
 type TermboxHardware struct {
-	rand   *rand.Rand
-	fg, bg termbox.Attribute
+	fg     termbox.Attribute
+	bg     termbox.Attribute
+	keys   uint16
 	keyMap map[rune]uint8
 	pixels [displaySize]uint8
-	keys   uint16
+	rand   *rand.Rand
 }
 
 func (hardware *TermboxHardware) Init() error {

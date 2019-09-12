@@ -7,8 +7,6 @@ import (
 	"io"
 )
 
-var ErrQuit = errors.New("quit")
-
 type CPU struct {
 	hardware Hardware
 	memory   [memorySize]uint8
@@ -19,9 +17,6 @@ type CPU struct {
 	pc       uint16
 	sp       uint8
 	stack    [stackSize]uint16
-	keys     [keyCount]bool
-	display  [displaySize]uint8
-	opcode   opcode
 }
 
 func NewCPU(hardware Hardware) (*CPU, error) {

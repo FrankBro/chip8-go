@@ -4,7 +4,6 @@ const (
 	memorySize    = 4096
 	registerCount = 16
 	stackSize     = 16
-	keyCount      = 16
 	displayWidth  = 64
 	displayHeigh  = 32
 	displaySize   = displayWidth * displayHeigh
