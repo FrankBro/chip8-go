@@ -9,19 +9,20 @@ import (
 )
 
 func main() {
-	// f, err := os.Open("test_opcode.ch8")
+	f, err := os.Open("test_opcode.ch8")
 	// f, err := os.Open("Puzzle.ch8")
-	f, err := os.Open("BC_test.ch8")
+	// f, err := os.Open("BC_test.ch8")
 	if err != nil {
 		panic(err)
 	}
 	defer f.Close()
-	config, err := NewDefaultTermboxConfig()
+	hardware := NewDefaultTermboxHardware()
+	err = hardware.Init()
 	if err != nil {
 		panic(err)
 	}
-	defer config.Close()
-	cpu, err := NewCPU(config)
+	defer hardware.Close()
+	cpu, err := NewCPU(hardware)
 	if err != nil {
 		panic(err)
 	}
@@ -51,5 +52,4 @@ func main() {
 			panic(err)
 		}
 	}
-	config.Close()
 }

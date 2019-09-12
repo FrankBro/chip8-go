@@ -10,24 +10,24 @@ import (
 var ErrQuit = errors.New("quit")
 
 type CPU struct {
-	config  Config
-	memory  [memorySize]uint8
-	v       [registerCount]uint8
-	i       uint16
-	dt      uint8
-	st      uint8
-	pc      uint16
-	sp      uint8
-	stack   [stackSize]uint16
-	keys    [keyCount]bool
-	display [displaySize]uint8
-	opcode  opcode
+	hardware Hardware
+	memory   [memorySize]uint8
+	v        [registerCount]uint8
+	i        uint16
+	dt       uint8
+	st       uint8
+	pc       uint16
+	sp       uint8
+	stack    [stackSize]uint16
+	keys     [keyCount]bool
+	display  [displaySize]uint8
+	opcode   opcode
 }
 
-func NewCPU(config Config) (*CPU, error) {
+func NewCPU(hardware Hardware) (*CPU, error) {
 	cpu := CPU{
-		config: config,
-		pc:     pcStart,
+		hardware: hardware,
+		pc:       pcStart,
 	}
 	err := cpu.loadFont()
 	return &cpu, err
@@ -67,14 +67,36 @@ func (cpu *CPU) updateTimers() {
 	}
 }
 
+func isKeySet(keys uint16, pos uint8) bool {
+	return (keys & (1 << pos)) != 0
+}
+
+func log2n(n uint16) uint8 {
+	if n > 1 {
+		return 1 + log2n(n/2)
+	} else {
+		return 0
+	}
+}
+
+func isPowerOfTwo(n uint16) bool {
+	return n&(^(n & (n - 1))) != 0
+}
+
+func findOnlySetBit(n uint16) (uint8, bool) {
+	if !isPowerOfTwo(n) {
+		return 0, false
+	}
+	return log2n(n) + 1, true
+}
+
 func (cpu *CPU) execute(opcode opcode) error {
 	switch opcode & 0xF000 {
 	case 0x0000:
 		switch opcode {
 		case 0x00E0:
 			// 00E0
-			pixels := cpu.display[:]
-			cpu.config.Display.Clear(pixels)
+			cpu.hardware.Clear()
 			cpu.pc += 2
 		case 0x00EE:
 			// 00EE
@@ -247,7 +269,7 @@ func (cpu *CPU) execute(opcode opcode) error {
 		// Cxkk
 		x := opcode.x()
 		kk := opcode.kk()
-		value := cpu.config.Random.Int7()
+		value := cpu.hardware.Int7()
 		cpu.v[x] = value & kk
 		cpu.pc += 2
 	case 0xD000:
@@ -260,16 +282,15 @@ func (cpu *CPU) execute(opcode opcode) error {
 
 		var cf byte
 
-		pixels := cpu.display[:]
 		sprite := cpu.memory[cpu.i : cpu.i+uint16(n)]
-		if cpu.config.Display.WriteSprite(pixels, sprite, vx, vy) {
+		if cpu.hardware.WriteSprite(sprite, vx, vy) {
 			cf = 0x01
 		}
 
 		cpu.v[0xF] = cf
 		cpu.pc += 2
 
-		err := cpu.config.Display.Draw(pixels)
+		err := cpu.hardware.Draw()
 		if err != nil {
 			return err
 		}
@@ -277,26 +298,18 @@ func (cpu *CPU) execute(opcode opcode) error {
 		switch opcode & 0x00FF {
 		case 0x009E:
 			// Ex9E
-			// TODO: Make this non-blocking
 			x := opcode.x()
-			key, err := cpu.config.Keyboard.GetKey()
-			if err != nil {
-				return err
-			}
+			keys := cpu.hardware.GetKeys()
 			cpu.pc += 2
-			if cpu.v[x] == key {
+			if isKeySet(keys, cpu.v[x]) {
 				cpu.pc += 2
 			}
 		case 0x00A1:
 			// ExA1
-			// TODO: Make this non-blocking
 			x := opcode.x()
-			key, err := cpu.config.Keyboard.GetKey()
-			if err != nil {
-				return err
-			}
+			keys := cpu.hardware.GetKeys()
 			cpu.pc += 2
-			if cpu.v[x] != key {
+			if !isKeySet(keys, cpu.v[x]) {
 				cpu.pc += 2
 			}
 		default:
@@ -312,9 +325,22 @@ func (cpu *CPU) execute(opcode opcode) error {
 		case 0x000A:
 			// Fx0A
 			x := opcode.x()
-			key, err := cpu.config.Keyboard.GetKey()
-			if err != nil {
-				return err
+			// Maybe this could be done better
+			// Make sure no key is pressed first
+			var keys uint16
+			for {
+				keys = cpu.hardware.GetKeys()
+				if keys == 0 {
+					break
+				}
+			}
+			var key uint8
+			for {
+				keys = cpu.hardware.GetKeys()
+				if bit, valid := findOnlySetBit(keys); valid {
+					key = bit
+					break
+				}
 			}
 			cpu.v[x] = key
 			cpu.pc += 2
