@@ -2,7 +2,6 @@ package main
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,10 +9,10 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		log.Fatalln("Usage: main rom")
+	name := "test_opcode.ch8"
+	if len(os.Args) == 2 {
+		name = os.Args[1]
 	}
-	name := os.Args[1]
 	f, err := os.Open(name)
 	if err != nil {
 		panic(err)
