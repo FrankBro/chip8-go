@@ -2,6 +2,7 @@ package main
 
 import (
 	"io/ioutil"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,7 +11,7 @@ import (
 
 func main() {
 	if len(os.Args) != 2 {
-		log.Println("Usage: main rom")
+		log.Fatalln("Usage: main rom")
 	}
 	name := os.Args[1]
 	f, err := os.Open(name)
