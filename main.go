@@ -16,11 +16,12 @@ func main() {
 		panic(err)
 	}
 	defer f.Close()
-	out, err := os.Create("out")
-	if err != nil {
-		panic(err)
-	}
-	defer out.Close()
+	// out, err := os.Create("out")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer out.Close()
+	out := ioutil.Discard
 	hardware := NewDefaultTermboxHardware()
 	err = hardware.Init()
 	if err != nil {
