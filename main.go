@@ -16,13 +16,18 @@ func main() {
 		panic(err)
 	}
 	defer f.Close()
+	out, err := os.Create("out")
+	if err != nil {
+		panic(err)
+	}
+	defer out.Close()
 	hardware := NewDefaultTermboxHardware()
 	err = hardware.Init()
 	if err != nil {
 		panic(err)
 	}
 	defer hardware.Close()
-	cpu, err := NewCPU(hardware)
+	cpu, err := NewCPU(hardware, out)
 	if err != nil {
 		panic(err)
 	}

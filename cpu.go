@@ -17,12 +17,14 @@ type CPU struct {
 	pc       uint16
 	sp       uint8
 	stack    [stackSize]uint16
+	log      io.Writer
 }
 
-func NewCPU(hardware Hardware) (*CPU, error) {
+func NewCPU(hardware Hardware, log io.Writer) (*CPU, error) {
 	cpu := CPU{
 		hardware: hardware,
 		pc:       pcStart,
+		log:      log,
 	}
 	err := cpu.loadFont()
 	return &cpu, err
@@ -85,6 +87,11 @@ func findOnlySetBit(n uint16) (uint8, bool) {
 }
 
 func (cpu *CPU) execute(opcode opcode) error {
+	cmd := fmt.Sprintf("%X\n", opcode)
+	_, err := cpu.log.Write([]byte(cmd))
+	if err != nil {
+		return err
+	}
 	switch opcode & 0xF000 {
 	case 0x0000:
 		switch opcode {
