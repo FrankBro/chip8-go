@@ -126,7 +126,7 @@ func (cpu *CPU) storeBcd(value uint8) {
 func (cpu *CPU) toMemory(length uint8) {
 	var i uint16
 	for ; i < uint16(length)+1; i++ {
-		cpu.v[i] = cpu.memory[cpu.i+i]
+		cpu.memory[cpu.i+i] = cpu.v[i]
 	}
 }
 
