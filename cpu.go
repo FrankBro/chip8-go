@@ -211,12 +211,8 @@ func (cpu *CPU) execute(opcode opcode) error {
 		case 0x0006:
 			// 8xy6
 			x := opcode.x()
-			var carry uint8
-			if cpu.v[x]&0x01 == 0x01 {
-				carry = 1
-			}
-			cpu.v[0xf] = carry
-			cpu.v[x] >>= 2
+			cpu.v[0xf] = cpu.v[x] & 1
+			cpu.v[x] >>= 1
 			cpu.pc += 2
 		case 0x0007:
 			// 8xy7
@@ -232,12 +228,8 @@ func (cpu *CPU) execute(opcode opcode) error {
 		case 0x000E:
 			// 8xyE
 			x := opcode.x()
-			var carry uint8
-			if cpu.v[x]&0x80 == 0x80 {
-				carry = 1
-			}
-			cpu.v[0xf] = carry
-			cpu.v[x] <<= 2
+			cpu.v[0xf] = cpu.v[x] & 0x80
+			cpu.v[x] <<= 1
 			cpu.pc += 2
 		default:
 			return fmt.Errorf("CPU.execute: Unknown opcode: %d", opcode)
