@@ -373,7 +373,7 @@ func (cpu *CPU) execute(opcode opcode) error {
 			// Fx55
 			x := uint16(opcode.x())
 			var i uint16
-			for ; i < x; i++ {
+			for ; i < x+1; i++ {
 				cpu.memory[cpu.i+i] = cpu.v[i]
 			}
 			cpu.pc += 2
@@ -381,7 +381,7 @@ func (cpu *CPU) execute(opcode opcode) error {
 			// Fx65
 			x := uint16(opcode.x())
 			var i uint16
-			for ; i < x; i++ {
+			for ; i < x+1; i++ {
 				cpu.v[i] = cpu.memory[cpu.i+i]
 			}
 			cpu.pc += 2
