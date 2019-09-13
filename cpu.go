@@ -366,7 +366,7 @@ func (cpu *CPU) execute(opcode opcode) error {
 			vx := cpu.v[x]
 			cpu.memory[cpu.i] = vx / 100
 			cpu.memory[cpu.i+1] = (vx / 10) % 10
-			cpu.memory[cpu.i+2] = (vx % 100) % 10
+			cpu.memory[cpu.i+2] = vx % 10
 			cpu.pc += 2
 		case 0x0055:
 			// Fx55
