@@ -9,9 +9,11 @@ import (
 )
 
 func main() {
-	f, err := os.Open("test_opcode.ch8")
-	// f, err := os.Open("Puzzle.ch8")
-	// f, err := os.Open("BC_test.ch8")
+	if len(os.Args) != 2 {
+		log.Println("Usage: main rom")
+	}
+	name := os.Args[1]
+	f, err := os.Open(name)
 	if err != nil {
 		panic(err)
 	}
