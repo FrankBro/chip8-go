@@ -17,6 +17,7 @@ type CPU struct {
 	sp       uint8
 	stack    [stackSize]uint16
 	log      io.Writer
+	opcode   opcode
 }
 
 func NewCPU(hardware Hardware, log io.Writer) (*CPU, error) {
@@ -50,8 +51,8 @@ func (cpu *CPU) LoadProgram(program []byte) error {
 	return nil
 }
 
-func (cpu *CPU) fetch() opcode {
-	return opcode(cpu.memory[cpu.pc])<<8 | opcode(cpu.memory[cpu.pc+1])
+func (cpu *CPU) fetch() {
+	cpu.opcode = opcode(cpu.memory[cpu.pc])<<8 | opcode(cpu.memory[cpu.pc+1])
 }
 
 func (cpu *CPU) updateTimers() {
@@ -63,337 +64,122 @@ func (cpu *CPU) updateTimers() {
 	}
 }
 
-func isKeySet(keys uint16, pos uint8) bool {
-	return (keys & (1 << pos)) != 0
-}
-
-func log2n(n uint16) uint8 {
-	if n > 1 {
-		return 1 + log2n(n/2)
-	}
-	return 0
-}
-
-func isPowerOfTwo(n uint16) bool {
-	return n&(^(n & (n - 1))) != 0
-}
-
-func findOnlySetBit(n uint16) (uint8, bool) {
-	if !isPowerOfTwo(n) {
-		return 0, false
-	}
-	return log2n(n) + 1, true
-}
-
-func (cpu *CPU) execute(opcode opcode) error {
-	cmd := fmt.Sprintf("%X\n", opcode)
+func (cpu *CPU) execute() error {
+	cmd := fmt.Sprintf("%X\n", cpu.opcode)
 	_, err := cpu.log.Write([]byte(cmd))
 	if err != nil {
 		return err
 	}
-	switch opcode & 0xF000 {
+	cpu.pc += 2
+	x := cpu.opcode.x()
+	vx := cpu.v[x]
+	y := cpu.opcode.y()
+	vy := cpu.v[y]
+	switch cpu.opcode & 0xF000 {
 	case 0x0000:
-		switch opcode {
+		switch cpu.opcode {
 		case 0x00E0:
-			// 00E0
-			cpu.hardware.Clear()
-			cpu.pc += 2
+			cpu.clear()
 		case 0x00EE:
-			// 00EE
-			cpu.pc = cpu.stack[cpu.sp]
+			cpu.jump(cpu.stack[cpu.sp])
 			cpu.sp--
-			cpu.pc += 2
 		default:
-			return fmt.Errorf("CPU.execute: Unknown opcode: %d", opcode)
+			return fmt.Errorf("CPU.execute: Unknown opcode: %X", cpu.opcode)
 		}
 	case 0x1000:
-		// 1nnn
-		nnn := opcode.nnn()
-		cpu.pc = nnn
+		cpu.jump(cpu.opcode.nnn())
 	case 0x2000:
-		// 2nnn
-		nnn := opcode.nnn()
-		cpu.sp++
-		cpu.stack[cpu.sp] = cpu.pc
-		cpu.pc = nnn
+		cpu.call(cpu.opcode.nnn())
 	case 0x3000:
-		// 3xkk
-		x := opcode.x()
-		kk := opcode.kk()
-		vx := cpu.v[x]
-		cpu.pc += 2
-		if vx == kk {
-			cpu.pc += 2
-		}
+		cpu.skip(vx == cpu.opcode.kk())
 	case 0x4000:
-		// 4xkk
-		x := opcode.x()
-		kk := opcode.kk()
-		vx := cpu.v[x]
-		cpu.pc += 2
-		if vx != kk {
-			cpu.pc += 2
-		}
+		cpu.skip(vx != cpu.opcode.kk())
 	case 0x5000:
-		// 5xy0
-		x := opcode.x()
-		y := opcode.y()
-		vx := cpu.v[x]
-		vy := cpu.v[y]
-		cpu.pc += 2
-		if vx == vy {
-			cpu.pc += 2
-		}
+		cpu.skip(vx == vy)
 	case 0x6000:
-		// 6xkk
-		x := opcode.x()
-		kk := opcode.kk()
-		cpu.v[x] = kk
-		cpu.pc += 2
+		cpu.assignRegister(x, cpu.opcode.kk())
 	case 0x7000:
-		// 7xkk
-		x := opcode.x()
-		kk := opcode.kk()
-		cpu.v[x] += kk
-		cpu.pc += 2
+		cpu.assignRegister(x, vx+cpu.opcode.kk())
 	case 0x8000:
-		switch opcode & 0x000F {
+		switch cpu.opcode & 0x000F {
 		case 0x0000:
-			// 8xy0
-			x := opcode.x()
-			y := opcode.y()
-			cpu.v[x] = cpu.v[y]
-			cpu.pc += 2
+			cpu.assignRegister(x, vy)
 		case 0x0001:
-			// 8xy1
-			x := opcode.x()
-			y := opcode.y()
-			cpu.v[x] |= cpu.v[y]
-			cpu.pc += 2
+			cpu.assignRegister(x, vx|vy)
 		case 0x0002:
-			// 8xy2
-			x := opcode.x()
-			y := opcode.y()
-			cpu.v[x] &= cpu.v[y]
-			cpu.pc += 2
+			cpu.assignRegister(x, vx&vy)
 		case 0x0003:
-			// 8xy3
-			x := opcode.x()
-			y := opcode.y()
-			cpu.v[x] ^= cpu.v[y]
-			cpu.pc += 2
+			cpu.assignRegister(x, vx^vy)
 		case 0x0004:
-			// 8xy4
-			x := opcode.x()
-			y := opcode.y()
-			vx := cpu.v[x]
-			vy := cpu.v[y]
-			r := uint16(vx) + uint16(vy)
-			var carry uint8
-			if r > 255 {
-				carry = 1
-			}
-			cpu.v[0xf] = carry
-			cpu.v[x] = uint8(r)
-			cpu.pc += 2
+			cpu.add(x, vx, vy)
 		case 0x0005:
-			// 8xy5
-			x := opcode.x()
-			y := opcode.y()
-			var carry uint8
-			if cpu.v[x] > cpu.v[y] {
-				carry = 1
-			}
-			cpu.v[0xf] = carry
-			cpu.v[x] -= cpu.v[y]
-			cpu.pc += 2
+			cpu.sub(x, vx, vy)
 		case 0x0006:
-			// 8xy6
-			x := opcode.x()
-			cpu.v[0xf] = cpu.v[x] & 1
-			cpu.v[x] >>= 1
-			cpu.pc += 2
+			cpu.shr(x, vx)
 		case 0x0007:
-			// 8xy7
-			x := opcode.x()
-			y := opcode.y()
-			var carry uint8
-			if cpu.v[y] > cpu.v[x] {
-				carry = 1
-			}
-			cpu.v[0xf] = carry
-			cpu.v[x] = cpu.v[y] - cpu.v[x]
-			cpu.pc += 2
+			cpu.sub(x, vy, vx)
 		case 0x000E:
-			// 8xyE
-			x := opcode.x()
-			cpu.v[0xf] = cpu.v[x] & 0x80
-			cpu.v[x] <<= 1
-			cpu.pc += 2
+			cpu.shl(x, vx)
 		default:
-			return fmt.Errorf("CPU.execute: Unknown opcode: %d", opcode)
+			return fmt.Errorf("CPU.execute: Unknown opcode: %X", cpu.opcode)
 		}
 	case 0x9000:
-		switch opcode & 0x000F {
+		switch cpu.opcode & 0x000F {
 		case 0x0000:
-			// 9xy0
-			x := opcode.x()
-			y := opcode.y()
-
-			cpu.pc += 2
-			if cpu.v[x] != cpu.v[y] {
-				cpu.pc += 2
-			}
+			cpu.skip(vx != vy)
 		default:
-			return fmt.Errorf("CPU.execute: Unknown opcode: %d", opcode)
+			return fmt.Errorf("CPU.execute: Unknown opcode: %X", cpu.opcode)
 		}
 	case 0xA000:
-		// Annn
-		nnn := opcode.nnn()
-		cpu.i = nnn
-		cpu.pc += 2
+		cpu.assignI(cpu.opcode.nnn())
 	case 0xB000:
-		// Bnnn
-		nnn := opcode.nnn()
-		v0 := cpu.v[0]
-		cpu.pc = nnn + uint16(v0)
+		cpu.jump(cpu.opcode.nnn() + uint16(cpu.v[0]))
 	case 0xC000:
-		// Cxkk
-		x := opcode.x()
-		kk := opcode.kk()
-		value := cpu.hardware.Int7()
-		cpu.v[x] = value & kk
-		cpu.pc += 2
+		cpu.assignRegister(x, cpu.hardware.Int7()+cpu.opcode.kk())
 	case 0xD000:
-		// Dxyn
-		x := opcode.x()
-		y := opcode.y()
-		n := opcode.n()
-		vx := cpu.v[x]
-		vy := cpu.v[y]
-
-		var cf byte
-
-		sprite := cpu.memory[cpu.i : cpu.i+uint16(n)]
-		if cpu.hardware.WriteSprite(sprite, vx, vy) {
-			cf = 0x01
-		}
-
-		cpu.v[0xF] = cf
-		cpu.pc += 2
-
-		err := cpu.hardware.Draw()
+		err := cpu.draw(cpu.opcode.n(), vx, vy)
 		if err != nil {
 			return err
 		}
 	case 0xE000:
-		switch opcode & 0x00FF {
+		switch cpu.opcode & 0x00FF {
 		case 0x009E:
-			// Ex9E
-			x := opcode.x()
-			keys := cpu.hardware.GetKeys()
-			cpu.pc += 2
-			if isKeySet(keys, cpu.v[x]) {
-				cpu.pc += 2
-			}
+			cpu.skip(cpu.isKeySet(vx))
 		case 0x00A1:
-			// ExA1
-			x := opcode.x()
-			keys := cpu.hardware.GetKeys()
-			cpu.pc += 2
-			if !isKeySet(keys, cpu.v[x]) {
-				cpu.pc += 2
-			}
+			cpu.skip(!cpu.isKeySet(vx))
 		default:
-			return fmt.Errorf("CPU.execute: Unknown opcode: %d", opcode)
+			return fmt.Errorf("CPU.execute: Unknown opcode: %X", cpu.opcode)
 		}
 	case 0xF000:
-		switch opcode & 0x00FF {
+		switch cpu.opcode & 0x00FF {
 		case 0x0007:
-			// Fx07
-			x := opcode.x()
-			cpu.v[x] = cpu.dt
-			cpu.pc += 2
+			cpu.assignRegister(x, cpu.dt)
 		case 0x000A:
-			// Fx0A
-			x := opcode.x()
-			// Maybe this could be done better
-			// Make sure no key is pressed first
-			var keys uint16
-			for {
-				keys = cpu.hardware.GetKeys()
-				if keys == 0 {
-					break
-				}
-			}
-			var key uint8
-			for {
-				keys = cpu.hardware.GetKeys()
-				if bit, valid := findOnlySetBit(keys); valid {
-					key = bit
-					break
-				}
-			}
-			cpu.v[x] = key
-			cpu.pc += 2
+			cpu.assignRegister(x, cpu.waitForKey())
 		case 0x0015:
-			// Fx15
-			x := opcode.x()
-			vx := cpu.v[x]
-			cpu.dt = vx
-			cpu.pc += 2
+			cpu.assignDT(vx)
 		case 0x0018:
-			// Fx18
-			x := opcode.x()
-			vx := cpu.v[x]
-			cpu.st = vx
-			cpu.pc += 2
+			cpu.assignST(vx)
 		case 0x001E:
-			// Fx1E
-			x := opcode.x()
-			vx := cpu.v[x]
-			cpu.i += uint16(vx)
-			cpu.pc += 2
+			cpu.assignI(cpu.i + uint16(vx))
 		case 0x0029:
-			// Fx29
-			x := opcode.x()
-			vx := cpu.v[x]
-			cpu.i = uint16(vx) * bytesPerSprite
-			cpu.pc += 2
+			cpu.assignI(uint16(vx) * bytesPerSprite)
 		case 0x0033:
-			// Fx33
-			x := opcode.x()
-			vx := cpu.v[x]
-			cpu.memory[cpu.i] = vx / 100
-			cpu.memory[cpu.i+1] = (vx / 10) % 10
-			cpu.memory[cpu.i+2] = vx % 10
-			cpu.pc += 2
+			cpu.storeBcd(vx)
 		case 0x0055:
-			// Fx55
-			x := uint16(opcode.x())
-			var i uint16
-			for ; i < x+1; i++ {
-				cpu.memory[cpu.i+i] = cpu.v[i]
-			}
-			cpu.pc += 2
+			cpu.toMemory(x)
 		case 0x0065:
-			// Fx65
-			x := uint16(opcode.x())
-			var i uint16
-			for ; i < x+1; i++ {
-				cpu.v[i] = cpu.memory[cpu.i+i]
-			}
-			cpu.pc += 2
+			cpu.fromMemory(x)
 		default:
-			return fmt.Errorf("CPU.execute: Unknown opcode: %d", opcode)
+			return fmt.Errorf("CPU.execute: Unknown opcode: %X", cpu.opcode)
 		}
 	}
 	return nil
 }
 
 func (cpu *CPU) cycle() error {
-	opcode := cpu.fetch()
-	err := cpu.execute(opcode)
+	cpu.fetch()
+	err := cpu.execute()
 	if err != nil {
 		return err
 	}
