@@ -49,7 +49,7 @@ func (cpu *CPU) shr(register, value uint8) {
 }
 
 func (cpu *CPU) shl(register, value uint8) {
-	cpu.v[0xf] = value & 0x80
+	cpu.v[0xf] = (value & 0x80) >> 7
 	cpu.v[register] = value << 1
 }
 
