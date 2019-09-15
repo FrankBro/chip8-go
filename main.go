@@ -3,13 +3,13 @@ package main
 import (
 	"io/ioutil"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 )
 
 func main() {
-	name := "test_opcode.ch8"
+	// scanner := bufio.NewScanner(os.Stdin)
+	// scanner.Scan()
+	name := "roms/test_opcode.ch8"
 	if len(os.Args) == 2 {
 		name = os.Args[1]
 	}
@@ -43,17 +43,10 @@ func main() {
 		panic(err)
 	}
 
-	var quit bool
-	sig := make(chan os.Signal)
-	signal.Notify(sig, os.Interrupt, syscall.SIGINT)
-	go func() {
-		<-sig
-		quit = true
-	}()
 	clock := time.NewTicker(time.Second / 60)
 	for range clock.C {
-		if quit {
-			panic("quit")
+		if hardware.Quit() {
+			break
 		}
 		err := cpu.cycle()
 		if err != nil {

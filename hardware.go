@@ -20,12 +20,14 @@ type Hardware interface {
 	Draw() error
 	WriteSprite(sprite []uint8, x, y uint8) bool
 	Clear()
+	Quit() bool
 }
 
 type TermboxHardware struct {
 	fg     termbox.Attribute
 	bg     termbox.Attribute
 	keys   uint16
+	quit   bool
 	keyMap map[rune]uint8
 	pixels [displaySize]uint8
 	rand   *rand.Rand
@@ -61,7 +63,7 @@ func (hardware *TermboxHardware) Init() error {
 			}
 			if event.Ch == 0 {
 				if event.Key == termbox.KeyEsc {
-					panic("esc")
+					hardware.quit = true
 				}
 				continue
 			}
@@ -145,6 +147,10 @@ func (hardware *TermboxHardware) Clear() {
 			hardware.pixels[index] = 0
 		}
 	}
+}
+
+func (hardware *TermboxHardware) Quit() bool {
+	return hardware.quit
 }
 
 func NewTermboxHardware(fg, bg termbox.Attribute, keyMap map[rune]uint8) Hardware {
