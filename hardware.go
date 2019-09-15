@@ -64,6 +64,7 @@ func (hardware *TermboxHardware) Init() error {
 			if event.Ch == 0 {
 				if event.Key == termbox.KeyEsc {
 					hardware.quit = true
+					break
 				}
 				continue
 			}
