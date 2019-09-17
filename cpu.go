@@ -145,7 +145,7 @@ func (cpu *CPU) execute() error {
 	case 0xC000:
 		cpu.assignRegister(x, cpu.hardware.Int7()+cpu.opcode.kk())
 	case 0xD000:
-		cpu.draw(cpu.opcode.n(), vx, vy)
+		cpu.draw(vx, vy, cpu.opcode.n())
 	case 0xE000:
 		switch cpu.opcode & 0x00FF {
 		case 0x009E:

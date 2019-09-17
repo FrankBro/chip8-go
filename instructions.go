@@ -1,9 +1,5 @@
 package main
 
-import (
-	"log"
-)
-
 func (cpu *CPU) clear() {
 	for i := range cpu.display {
 		cpu.display[i] = 0
@@ -64,32 +60,23 @@ func (cpu *CPU) assignI(value uint16) {
 	cpu.i = value
 }
 
-func (cpu *CPU) draw(size, x, y uint8) {
-	var collision uint8
-	sprite := cpu.memory[cpu.i : cpu.i+uint16(size)]
+func (cpu *CPU) draw(x, y, height uint8) {
 	var xl, yl uint16
-	for yl = 0; yl < uint16(size); yl++ {
+	cpu.v[0xF] = 0
+	for yl = 0; yl < uint16(height); yl++ {
 		yp := (uint16(y) + yl) % displayHeigh
-
-		data := sprite[yl]
+		pixel := cpu.memory[cpu.i+yl]
 		for xl = 0; xl < 8; xl++ {
 			xp := (uint16(x) + xl) % displayWidth
-
-			on := (data & uint8(0x80>>xl)) != 0
-
-			index := xp + yp*displayWidth
-			var v uint8
-			if on {
-				collision = 1
-				v = 1
+			if pixel&(0x80>>xl) != 0 {
+				index := xp + yp*displayWidth
+				if cpu.display[index] == 1 {
+					cpu.v[0xF] = 1
+				}
+				cpu.display[index] ^= 1
 			}
-			cpu.display[index] ^= v
 		}
 	}
-	if collision != 0 {
-		log.Println("collision")
-	}
-	cpu.v[0xF] = collision
 	cpu.shouldDraw = true
 }
 
