@@ -4,171 +4,133 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/nsf/termbox-go"
+	"github.com/veandco/go-sdl2/sdl"
 )
 
 type Hardware interface {
-	// Setup
 	Init() error
 	Close()
-	// Random
 	Int7() uint8
-	// Keypad
-	GetKeys() uint16
-	// Display
-	GetPixels() []uint8
-	Draw() error
-	WriteSprite(sprite []uint8, x, y uint8) bool
-	Clear()
-	Quit() bool
+	Update(keys *uint16, quit *bool)
+	Draw(pixels []uint8) error
 }
 
-type TermboxHardware struct {
-	fg     termbox.Attribute
-	bg     termbox.Attribute
-	keys   uint16
-	quit   bool
-	keyMap map[rune]uint8
-	pixels [displaySize]uint8
-	rand   *rand.Rand
+type SDLHardware struct {
+	window   *sdl.Window
+	renderer *sdl.Renderer
+	rand     *rand.Rand
+	keyMap   map[sdl.Keycode]uint8
 }
 
-func (hardware *TermboxHardware) Init() error {
+const size = 10
+
+func (hardware *SDLHardware) Init() error {
 	// Random
 	source := rand.NewSource(time.Now().Unix())
 	rand := rand.New(source)
 	hardware.rand = rand
 	// Display
-	if err := termbox.Init(); err != nil {
-		return err
-	}
-
-	termbox.HideCursor()
-
-	err := termbox.Clear(hardware.bg, hardware.bg)
+	err := sdl.Init(sdl.INIT_EVERYTHING)
 	if err != nil {
 		return err
 	}
-
-	err = termbox.Flush()
+	window, err := sdl.CreateWindow("chip8", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
+		displayWidth*10, displayHeigh*10, sdl.WINDOW_SHOWN)
 	if err != nil {
 		return err
 	}
-
-	go func(hardware *TermboxHardware) {
-		for {
-			event := termbox.PollEvent()
-			if event.Type != termbox.EventKey {
-				continue
-			}
-			if event.Ch == 0 {
-				if event.Key == termbox.KeyEsc {
-					hardware.quit = true
-					break
-				}
-				continue
-			}
-			if key, ok := hardware.keyMap[event.Ch]; ok {
-				hardware.keys |= 1 << key
-			}
-		}
-	}(hardware)
-
+	renderer, err := sdl.CreateRenderer(window, -1, 0)
+	if err != nil {
+		return err
+	}
+	hardware.window = window
+	hardware.renderer = renderer
 	return nil
 }
 
-func (hardware *TermboxHardware) Close() {
-	termbox.Close()
+func (hardware *SDLHardware) Close() {
+	_ = hardware.renderer.Destroy()
+	_ = hardware.window.Destroy()
 }
 
-func (hardware *TermboxHardware) Int7() uint8 {
+func (hardware *SDLHardware) Int7() uint8 {
 	value := hardware.rand.Intn(256)
 	return uint8(value)
 }
 
-func (hardware *TermboxHardware) GetKeys() uint16 {
-	return hardware.keys
-}
-
-func (hardware *TermboxHardware) GetPixels() []uint8 {
-	return hardware.pixels[:]
-}
-
-func (hardware *TermboxHardware) Draw() error {
-	for y := 0; y < displayHeigh-1; y++ {
-		for x := 0; x < displayWidth-1; x++ {
-			index := y*displayWidth + x
-			v := ' '
-
-			if hardware.pixels[index] == 0x01 {
-				v = '█'
+func (hardware *SDLHardware) Update(keys *uint16, quit *bool) {
+	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+		switch et := event.(type) {
+		case *sdl.QuitEvent:
+			*quit = true
+		case *sdl.KeyboardEvent:
+			if et.Type == sdl.KEYUP {
+				if key, ok := hardware.keyMap[et.Keysym.Sym]; ok {
+					*keys &= 0 << key
+				}
+			} else if et.Type == sdl.KEYDOWN {
+				if et.Keysym.Sym == sdl.K_ESCAPE {
+					*quit = true
+				} else if key, ok := hardware.keyMap[et.Keysym.Sym]; ok {
+					*keys |= 1 << key
+				}
 			}
-
-			termbox.SetCell(x, y, v, hardware.fg, hardware.bg)
-		}
-	}
-	return termbox.Flush()
-}
-
-func (hardware *TermboxHardware) WriteSprite(sprite []uint8, x, y uint8) (collision bool) {
-	n := len(sprite)
-	for yl := 0; yl < n; yl++ {
-		r := sprite[yl]
-
-		for xl := 0; xl < 8; xl++ {
-			i := 0x80 >> uint8(xl)
-			on := (r & byte(i)) == byte(i)
-			xp := uint16(x) + uint16(xl)
-			if xp >= displayWidth {
-				xp -= displayWidth
-			}
-			yp := uint16(y) + uint16(yl)
-			if yp >= displayHeigh {
-				yp -= displayHeigh
-			}
-
-			index := xp + yp*displayWidth
-			if hardware.pixels[index] == 0x01 {
-				collision = true
-			}
-			var v uint8
-			if on {
-				v = 0x01
-			}
-			hardware.pixels[index] ^= v
-		}
-	}
-	return collision
-}
-
-func (hardware *TermboxHardware) Clear() {
-	for y := 0; y < displayHeigh-1; y++ {
-		for x := 0; x < displayWidth-1; x++ {
-			index := y*displayWidth + x
-			hardware.pixels[index] = 0
 		}
 	}
 }
 
-func (hardware *TermboxHardware) Quit() bool {
-	return hardware.quit
+func (hardware *SDLHardware) Draw(pixels []uint8) error {
+	err := hardware.renderer.SetDrawColor(0, 0, 0, 255)
+	if err != nil {
+		return err
+	}
+	err = hardware.renderer.Clear()
+	if err != nil {
+		return err
+	}
+
+	var x, y int32
+	for x = 0; x < displayWidth; x++ {
+		for y = 0; y < displayHeigh; y++ {
+			i := x + y*displayWidth
+			pixel := pixels[i]
+			if pixel == 0 {
+				err = hardware.renderer.SetDrawColor(0, 0, 0, 255)
+				if err != nil {
+					return err
+				}
+			} else {
+				err = hardware.renderer.SetDrawColor(255, 255, 255, 255)
+				if err != nil {
+					return err
+				}
+			}
+			err = hardware.renderer.FillRect(&sdl.Rect{
+				X: x * size, Y: y * size, W: size, H: size,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	hardware.renderer.Present()
+	return nil
 }
 
-func NewTermboxHardware(fg, bg termbox.Attribute, keyMap map[rune]uint8) Hardware {
-	hardware := TermboxHardware{
-		fg:     fg,
-		bg:     bg,
+func NewSDLHardware(keyMap map[sdl.Keycode]uint8) Hardware {
+	hardware := SDLHardware{
 		keyMap: keyMap,
 	}
 	return &hardware
 }
 
-func NewDefaultTermboxHardware() Hardware {
-	keyMap := map[rune]uint8{
-		'1': 0x1, '2': 0x2, '3': 0x3, '4': 0xC,
-		'q': 0x4, 'w': 0x5, 'e': 0x6, 'r': 0xD,
-		'a': 0x7, 's': 0x8, 'd': 0x9, 'f': 0xE,
-		'z': 0xA, 'x': 0x0, 'c': 0xB, 'v': 0xF,
+func NewDefaultSDLHardware() Hardware {
+	keyMap := map[sdl.Keycode]uint8{
+		sdl.K_1: 0x1, sdl.K_2: 0x2, sdl.K_3: 0x3, sdl.K_4: 0xC,
+		sdl.K_q: 0x4, sdl.K_w: 0x5, sdl.K_e: 0x6, sdl.K_r: 0xD,
+		sdl.K_a: 0x7, sdl.K_s: 0x8, sdl.K_d: 0x9, sdl.K_f: 0xE,
+		sdl.K_z: 0xA, sdl.K_x: 0x0, sdl.K_c: 0xB, sdl.K_v: 0xF,
 	}
-	return NewTermboxHardware(termbox.ColorDefault, termbox.ColorDefault, keyMap)
+	return NewSDLHardware(keyMap)
 }

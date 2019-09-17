@@ -7,17 +7,21 @@ import (
 )
 
 type CPU struct {
-	hardware Hardware
-	memory   [memorySize]uint8
-	v        [registerCount]uint8
-	i        uint16
-	dt       uint8
-	st       uint8
-	pc       uint16
-	sp       uint8
-	stack    [stackSize]uint16
-	log      io.Writer
-	opcode   opcode
+	hardware   Hardware
+	memory     [memorySize]uint8
+	display    [displaySize]uint8
+	v          [registerCount]uint8
+	stack      [stackSize]uint16
+	log        io.Writer
+	keys       uint16
+	i          uint16
+	dt         uint8
+	st         uint8
+	pc         uint16
+	sp         uint8
+	quit       bool
+	shouldDraw bool
+	opcode     opcode
 }
 
 func NewCPU(hardware Hardware, log io.Writer) (*CPU, error) {
@@ -51,11 +55,15 @@ func (cpu *CPU) LoadProgram(program []byte) error {
 	return nil
 }
 
+func (cpu *CPU) Quit() bool {
+	return cpu.quit
+}
+
 func (cpu *CPU) fetch() {
 	cpu.opcode = opcode(cpu.memory[cpu.pc])<<8 | opcode(cpu.memory[cpu.pc+1])
 }
 
-func (cpu *CPU) updateTimers() {
+func (cpu *CPU) UpdateTimers() {
 	if cpu.dt > 0 {
 		cpu.dt--
 	}
@@ -137,10 +145,7 @@ func (cpu *CPU) execute() error {
 	case 0xC000:
 		cpu.assignRegister(x, cpu.hardware.Int7()+cpu.opcode.kk())
 	case 0xD000:
-		err := cpu.draw(cpu.opcode.n(), vx, vy)
-		if err != nil {
-			return err
-		}
+		cpu.draw(cpu.opcode.n(), vx, vy)
 	case 0xE000:
 		switch cpu.opcode & 0x00FF {
 		case 0x009E:
@@ -183,6 +188,14 @@ func (cpu *CPU) cycle() error {
 	if err != nil {
 		return err
 	}
-	cpu.updateTimers()
+	cpu.hardware.Update(&cpu.keys, &cpu.quit)
+	if cpu.shouldDraw {
+		cpu.shouldDraw = false
+		err = cpu.hardware.Draw(cpu.display[:])
+		if err != nil {
+			return err
+		}
+	}
+	// cpu.updateTimers()
 	return nil
 }
