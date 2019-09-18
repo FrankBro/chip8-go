@@ -5,8 +5,8 @@ const (
 	registerCount = 16
 	stackSize     = 16
 	displayWidth  = 64
-	displayHeigh  = 32
-	displaySize   = displayWidth * displayHeigh
+	displayHeight = 32
+	displaySize   = displayWidth * displayHeight
 
 	pcStart        = 0x200
 	bytesPerSprite = 5

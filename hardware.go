@@ -34,7 +34,7 @@ func (hardware *SDLHardware) Init() error {
 		return err
 	}
 	window, err := sdl.CreateWindow("chip8", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
-		displayWidth*hardware.pixelSize, displayHeigh*hardware.pixelSize, sdl.WINDOW_SHOWN)
+		displayWidth*hardware.pixelSize, displayHeight*hardware.pixelSize, sdl.WINDOW_SHOWN)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (hardware *SDLHardware) Draw(pixels []uint8) error {
 
 	var x, y int32
 	for x = 0; x < displayWidth; x++ {
-		for y = 0; y < displayHeigh; y++ {
+		for y = 0; y < displayHeight; y++ {
 			i := x + y*displayWidth
 			pixel := pixels[i]
 			if pixel == 0 {
