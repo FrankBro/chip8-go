@@ -12,8 +12,8 @@ func (cpu *CPU) jump(addr uint16) {
 }
 
 func (cpu *CPU) call(addr uint16) {
-	cpu.sp++
 	cpu.stack[cpu.sp] = cpu.pc
+	cpu.sp++
 	cpu.pc = addr
 }
 
@@ -28,13 +28,12 @@ func (cpu *CPU) assignRegister(register, value uint8) {
 }
 
 func (cpu *CPU) add(register, lhs, rhs uint8) {
-	result := uint16(lhs) + uint16(rhs)
 	var carry uint8
-	if result > 255 {
+	if lhs > 0xFF-rhs {
 		carry = 1
 	}
 	cpu.v[0xf] = carry
-	cpu.v[register] = uint8(result)
+	cpu.v[register] = lhs + rhs
 }
 
 func (cpu *CPU) sub(register, lhs, rhs uint8) {
@@ -52,7 +51,7 @@ func (cpu *CPU) shr(register, value uint8) {
 }
 
 func (cpu *CPU) shl(register, value uint8) {
-	cpu.v[0xf] = (value & 0x80) >> 7
+	cpu.v[0xf] = value >> 7
 	cpu.v[register] = value << 1
 }
 
@@ -64,12 +63,13 @@ func (cpu *CPU) draw(x, y, height uint8) {
 	var xl, yl uint16
 	cpu.v[0xF] = 0
 	for yl = 0; yl < uint16(height); yl++ {
-		yp := (uint16(y) + yl) % displayHeigh
+		// yp := (uint16(y) + yl) % displayHeigh
 		pixel := cpu.memory[cpu.i+yl]
 		for xl = 0; xl < 8; xl++ {
-			xp := (uint16(x) + xl) % displayWidth
+			// xp := (uint16(x) + xl) % displayWidth
 			if pixel&(0x80>>xl) != 0 {
-				index := xp + yp*displayWidth
+				// index := xp + yp*displayWidth
+				index := ((uint16(x) + xl) + (uint16(y)+yl)*displayWidth) % displaySize
 				if cpu.display[index] == 1 {
 					cpu.v[0xF] = 1
 				}
@@ -112,13 +112,17 @@ func (cpu *CPU) storeBcd(value uint8) {
 func (cpu *CPU) toMemory(length uint8) {
 	var i uint16
 	for ; i < uint16(length)+1; i++ {
-		cpu.memory[cpu.i+i] = cpu.v[i]
+		// cpu.memory[cpu.i+i] = cpu.v[i]
+		cpu.memory[cpu.i] = cpu.v[i]
+		cpu.i++
 	}
 }
 
 func (cpu *CPU) fromMemory(length uint8) {
 	var i uint16
 	for ; i < uint16(length)+1; i++ {
-		cpu.v[i] = cpu.memory[cpu.i+i]
+		// cpu.v[i] = cpu.memory[cpu.i+i]
+		cpu.v[i] = cpu.memory[cpu.i]
+		cpu.i++
 	}
 }

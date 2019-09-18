@@ -89,8 +89,8 @@ func (cpu *CPU) execute() error {
 		case 0x00E0:
 			cpu.clear()
 		case 0x00EE:
-			cpu.jump(cpu.stack[cpu.sp])
 			cpu.sp--
+			cpu.jump(cpu.stack[cpu.sp])
 		default:
 			return fmt.Errorf("CPU.execute: Unknown opcode: %X", cpu.opcode)
 		}

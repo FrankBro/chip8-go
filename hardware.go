@@ -16,13 +16,12 @@ type Hardware interface {
 }
 
 type SDLHardware struct {
-	window   *sdl.Window
-	renderer *sdl.Renderer
-	rand     *rand.Rand
-	keyMap   map[sdl.Keycode]uint8
+	window    *sdl.Window
+	renderer  *sdl.Renderer
+	rand      *rand.Rand
+	keyMap    map[sdl.Keycode]uint8
+	pixelSize int32
 }
-
-const size = 10
 
 func (hardware *SDLHardware) Init() error {
 	// Random
@@ -35,7 +34,7 @@ func (hardware *SDLHardware) Init() error {
 		return err
 	}
 	window, err := sdl.CreateWindow("chip8", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
-		displayWidth*10, displayHeigh*10, sdl.WINDOW_SHOWN)
+		displayWidth*hardware.pixelSize, displayHeigh*hardware.pixelSize, sdl.WINDOW_SHOWN)
 	if err != nil {
 		return err
 	}
@@ -106,7 +105,7 @@ func (hardware *SDLHardware) Draw(pixels []uint8) error {
 				}
 			}
 			err = hardware.renderer.FillRect(&sdl.Rect{
-				X: x * size, Y: y * size, W: size, H: size,
+				X: x * hardware.pixelSize, Y: y * hardware.pixelSize, W: hardware.pixelSize, H: hardware.pixelSize,
 			})
 			if err != nil {
 				return err
@@ -118,9 +117,10 @@ func (hardware *SDLHardware) Draw(pixels []uint8) error {
 	return nil
 }
 
-func NewSDLHardware(keyMap map[sdl.Keycode]uint8) Hardware {
+func NewSDLHardware(pixelSize int32, keyMap map[sdl.Keycode]uint8) Hardware {
 	hardware := SDLHardware{
-		keyMap: keyMap,
+		pixelSize: pixelSize,
+		keyMap:    keyMap,
 	}
 	return &hardware
 }
@@ -132,5 +132,5 @@ func NewDefaultSDLHardware() Hardware {
 		sdl.K_a: 0x7, sdl.K_s: 0x8, sdl.K_d: 0x9, sdl.K_f: 0xE,
 		sdl.K_z: 0xA, sdl.K_x: 0x0, sdl.K_c: 0xB, sdl.K_v: 0xF,
 	}
-	return NewSDLHardware(keyMap)
+	return NewSDLHardware(10, keyMap)
 }
